@@ -1,0 +1,32 @@
+{
+  "name": "meshweb-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "cli.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/7xy95/MeshWeb-CLI.git"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "node-pty": "^1.1.0",
+    "playwright": "^1.65.1"
+  },
+  "bin": {
+    "meshweb": "./cli.js"
+  },
+  "scripts": {
+    "start": "node cli.js"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.26.0"
+  },
+  "pkg": {
+    "assets": [
+      "bin/**/*",
+      "js/gpuMinerWindow.html",
+      "js/gpuMinerWindow.js",
+      "node_modules/playwright-core/browsers.json"
+    ]
+  }
+}
