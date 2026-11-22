@@ -490,7 +490,6 @@ async function runServer() {
             }
         }
 
-        const pty = require("node-pty")
         function onTunnelExit(code) {
             clearTimeout(tunnelTimeout)
             tunnelProcess = null
@@ -523,24 +522,6 @@ async function runServer() {
 
             tunnelProcess.on("close", code => {
                 onTunnelExit(code)
-            })
-        }
-        else if (provider === "bore") {
-            tunnelProcess = pty.spawn(
-                getTunnelPath("tunnel"),
-                [`-u=http://127.0.0.1:${port}`],
-                {
-                    name: "xterm-256color",
-                    cols: 160,
-                    rows: 24
-                }
-            )
-
-            tunnelProcess.onData(data => {
-                void tunnelOutput(data)
-            })
-            tunnelProcess.onExit(({exitCode}) => {
-                onTunnelExit(exitCode)
             })
         }
     }

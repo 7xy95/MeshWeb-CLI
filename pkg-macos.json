@@ -1,0 +1,14 @@
+{
+  "pkg": {
+    "assets": [
+      "bin/mac-arm64/**/*",
+      "js/gpuMinerWindow.html",
+      "js/gpuMinerWindow.js",
+      "node_modules/playwright-core/browsers.json"
+    ],
+    "ignore": [
+      "bin/mac-x64/**/*",
+      "bin/win-x64/**/*"
+    ]
+  }
+}

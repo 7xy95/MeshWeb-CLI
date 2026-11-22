@@ -1,0 +1,10 @@
+{
+  "pkg": {
+    "assets": [
+      "bin/win-x64/**/*",
+      "js/gpuMinerWindow.html",
+      "js/gpuMinerWindow.js",
+      "node_modules/playwright-core/browsers.json"
+    ]
+  }
+}

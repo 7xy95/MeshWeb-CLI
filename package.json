@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
-    "node-pty": "^1.1.0",
     "playwright": "^1.65.1"
   },
   "bin": {
@@ -20,13 +19,5 @@
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^6.26.0"
-  },
-  "pkg": {
-    "assets": [
-      "bin/**/*",
-      "js/gpuMinerWindow.html",
-      "js/gpuMinerWindow.js",
-      "node_modules/playwright-core/browsers.json"
-    ]
   }
 }
