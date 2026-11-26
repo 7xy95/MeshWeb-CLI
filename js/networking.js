@@ -2,12 +2,15 @@ const http = require("node:http")
 const { spawn } = require("node:child_process")
 const path = require("path")
 const { sync } = require("./sync")
+const httpProxy = require("http-proxy")
+const proxy = httpProxy.createProxyServer({changeOrigin: true})
 
 let server = null
 let port = null
 let tunnelProcess = null
 let tunnelUrl = null
 global.connected = false
+let websites = new Map()
 
 async function updateURL() {
     try {
@@ -139,7 +142,7 @@ function getExecutableTunnelPath(name="cloudflared") {
     fs.mkdirSync(extractDir, { recursive: true })
 
     if (!fs.existsSync(extractPath)) {
-        fs.copyFileSync(tunnelPath, extractPath)
+        fs.writeFileSync(extractPath, fs.readFileSync(tunnelPath))
         fs.chmodSync(extractPath, 0o700)
     }
 
@@ -194,6 +197,8 @@ async function runServer() {
     }, async (req, res) => {
         try {
             let version = 1
+            let url = new URL(req.url, "http://localhost")
+            let website = url.pathname.match(/^\/site\/([0-9]+)(\/.*)?$/)
             if (req.url.startsWith("/v2/")) {
                 version = 2
                 req.url = req.url.slice(3)
@@ -420,6 +425,12 @@ async function runServer() {
                 return
             }
 
+            if (website && websites.has(website[1])) {
+                let target = websites.get(website[1])
+                req.url = (website[2] || "/") + url.search
+                proxy.web(req, res, {target})
+                return
+            }
             sendJSON(res, 404, {
                 ok: false,
                 error: "Invalid Endpoint"
@@ -619,6 +630,15 @@ function stopTunnel() {
         tunnelProcess = null
     }
 }
+function setWebsite(index, w) {
+    websites.set(index, w)
+}
+function getWebsites() {
+    return Object.fromEntries(websites)
+}
+function removeWebsite(index) {
+    return websites.delete(index)
+}
 
 module.exports = {
     runServer,
@@ -628,5 +648,8 @@ module.exports = {
     getNodes,
     tunnelUrl,
     broadcastDomain,
-    stopTunnel
+    stopTunnel,
+    setWebsite,
+    getWebsites,
+    removeWebsite
 }

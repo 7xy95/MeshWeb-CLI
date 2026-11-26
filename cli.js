@@ -8,9 +8,9 @@ const sync = require("./js/sync.js")
 require("./js/utils.js")
 require("./js/new.js")
 require("./js/mining.js")
-const domain = require("node:domain");
+const {validateField} = require("@noble/curves/abstract/modular.js");
 
-const args = process.argv.slice(2)
+let args = process.argv.slice(2)
 
 async function startNode() {
 	async function nodeRunning() {
@@ -62,6 +62,22 @@ function commands() {
 				res.end(JSON.stringify({result}))
 				return
 			}
+			if (url.pathname === "/find/prefix" && req.method === "GET") {
+				let prefix = url.searchParams.get("prefix")
+				let matches = []
+				matches.push(...domains.filter((d) => d[0].startsWith(prefix)))
+				res.end(JSON.stringify({matches}))
+				return
+			}
+			if (url.pathname === "/find/key" && req.method === "GET") {
+				let key = url.searchParams.get("key")
+				let matches = []
+				matches.push(...domains.filter((d) => d[1].split("-----")[2].replaceAll("\n", "") === key))
+				console.log(domains[0][1].split("-----")[2].replaceAll("\n", ""))
+				console.log(key)
+				res.end(JSON.stringify({matches}))
+				return
+			}
 			if (url.pathname === "/domainInfo" && req.method === "GET") {
 				let domain = url.searchParams.get("domain")
 				let result = global.domains.find(item => item[0] === domain)
@@ -107,6 +123,33 @@ function commands() {
 				newKeys(seed)
 				void mine(domain, endpoint)
 				res.end(JSON.stringify({ success: true }))
+				return
+			}
+			if (url.pathname === "/website/info" && req.method === "GET") {
+				res.end(JSON.stringify({websites: network.getWebsites()}))
+				return
+			}
+			if (url.pathname === "/website/add" && req.method === "POST") {
+				let body = ""
+				for await (let chunk of req) {
+					body += chunk
+				}
+				body = JSON.parse(body)
+				let index = body.index
+				let endpoint = body.endpoint
+				network.setWebsite(index, endpoint)
+				res.end(JSON.stringify({success: true}))
+				return
+			}
+			if (url.pathname === "/website/remove" && req.method === "POST") {
+				let body = ""
+				for await (let chunk of req) {
+					body += chunk
+				}
+				body = JSON.parse(body)
+				let index = body.index
+				let success = network.removeWebsite(String(index))
+				res.end(JSON.stringify({success: success}))
 				return
 			}
 			if (url.pathname === "/sync" && req.method === "POST") {
@@ -268,6 +311,50 @@ async function displayMiningInfo(useJson) {
 		console.table(data)
 	}
 }
+async function addWebsite(endpoint, index) {
+	if (endpoint === undefined || index === undefined) {
+		throw new Error(`Expected 'website add <endpoint> <index>' 
+		but got 'website add ${endpoint || ""} ${index || ""}'`)
+	}
+	let response = await fetch("http://127.0.0.1:47821/website/add", {
+		method: "POST",
+		body: JSON.stringify({index: index, endpoint: endpoint})
+	})
+	if (!response.ok) {
+		throw new Error(`Failed to create website: ${response.status}`)
+	}
+}
+async function removeWebsite(index) {
+	if (index === undefined) {
+		throw new Error(`Expected 'website remove <index>' 
+		but got 'website remove `)
+	}
+	let response = await fetch("http://127.0.0.1:47821/website/remove", {
+		method: "POST",
+		body: JSON.stringify({index: index})
+	})
+	if (!response.ok) {
+		throw new Error(`Failed to remove website at index ${index}: ${response.status}`)
+	}
+	let data = await response.json()
+	if (!data.success) {
+		throw new Error(`Website at index ${index} not found`)
+	}
+	console.log(`Website at index ${index} removed`)
+}
+async function websiteInfo(useJson) {
+	let response = await fetch("http://127.0.0.1:47821/website/info")
+	if (!response.ok) {
+		throw new Error(`Failed to get info: ${response.status}`)
+	}
+	let websites = (await response.json()).websites
+	if (useJson) {
+		console.log(JSON.stringify(websites))
+	}
+	else {
+		console.table(websites)
+	}
+}
 async function stopNode() {
 	let response = await fetch("http://127.0.0.1:47821/stop", {
 		method: "POST"
@@ -276,6 +363,37 @@ async function stopNode() {
 		throw new Error(`Failed to stop node: ${response.status}`)
 	}
 	console.log("Mesh Web node stopped")
+}
+async function findStartsWith(prefix, useJson) {
+	if (!prefix) {
+		throw new Error(`Expected a prefix after 'info startsWith' but got none`)
+	}
+	let url = new URL("http://127.0.0.1:47821/find/prefix")
+	url.searchParams.set("prefix", prefix)
+	await displayFind(url, useJson)
+}
+async function findKey(key, useJson) {
+	if (!key) {
+		throw new Error(`Expected a key after 'info key' but got none`)
+	}
+	let url = new URL("http://127.0.0.1:47821/find/key")
+	url.searchParams.set("key", key)
+	await displayFind(url, useJson)
+}
+async function displayFind(url, useJson) {
+	let response = await fetch(url)
+	if (!response.ok) {
+		throw new Error(`Failed to find: ${response.status}`)
+	}
+	let data = (await response.json()).matches
+	if (useJson) {
+		console.log(JSON.stringify(data))
+	}
+	else {
+		for (let domain of data) {
+			console.table(domain)
+		}
+	}
 }
 
 function displayHelp() {
@@ -299,6 +417,11 @@ Commands:
   ${c("mine stop", "Stop mining")}
   ${c("mine info", "Show mining status and statistics")}
   ${c("change <domain> <new endpoint> <seed>", "Change the endpoint of a domain")}
+  ${c("find startsWith <prefix>", "Find domains starting with prefix")}
+  ${c("find key <key>", "Find domains with a specific key")}
+  ${c("website add <endpoint> <id>", "Points tunnel/site/<id> to the localhost endpoint")}
+  ${c("website remove <id>", "Removes tunnel/site/<id> from the localhost endpoint")}
+  ${c("website info", "Displays all website endpoints and ids")}
 
 Options:
   ${c("--json", "Outputs results as json")}
@@ -343,7 +466,34 @@ async function main() {
 					await displayMiningInfo(json)
 					break
 				default:
-					console.log(`Expected either 'start', 'stop' or 'status' after 'mine', but got '${args[1]}'`)
+					console.error(`Expected either 'start', 'stop' or 'status' after 'mine', but got '${args[1]}'`)
+			}
+			break
+		case "find":
+			switch (args[1]) {
+				case "startsWith":
+					await findStartsWith(args[2], json)
+					break
+				case "key":
+					await findKey(args[2], json)
+					break
+				default:
+					console.error(`Expected either 'startsWith' or 'key' after 'find', but got '${args[1]}'`)
+			}
+			break
+		case "website":
+			switch (args[1]) {
+				case "add":
+					await addWebsite(args[2], args[3])
+					break
+				case "info":
+					await websiteInfo(json)
+					break
+				case "remove":
+					await removeWebsite(args[2])
+					break
+				default:
+					console.error(`Expected either 'add', 'info' or 'new' after 'website', but got '${args[1]}'`)
 			}
 			break
 		case "change":
@@ -353,7 +503,7 @@ async function main() {
 			await stopNode()
 			break
 		default:
-			console.log(`Command ${args[0]} not found`)
+			console.error(`Command ${args[0]} not found`)
 	}
 }
 main().catch(error => {

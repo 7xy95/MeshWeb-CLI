@@ -1,6 +1,6 @@
 {
   "name": "meshweb-cli",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "",
   "main": "cli.js",
   "repository": {
@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
+    "http-proxy": "^1.18.1",
     "playwright": "^1.65.1"
   },
   "bin": {
@@ -18,6 +19,7 @@
     "start": "node cli.js"
   },
   "devDependencies": {
+    "@types/http-proxy": "^1.17.17",
     "@yao-pkg/pkg": "^6.26.0"
   }
 }
